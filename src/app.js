@@ -2,9 +2,12 @@ const express = require("express");
 const database = require("./database");
 const User = require("../model/user");
 const bcrypt = require("bcrypt");
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
 const { UserValidation } = require("../utils/validation");
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
 app.post("/signup", async (req, res) => {
   try {
     UserValidation(req);
@@ -32,6 +35,8 @@ app.post("/login", async (req, res) => {
     }
     const isPassword = await bcrypt.compare(password, validEmail.password);
     if (isPassword) {
+      const token = await jwt.sign({ _id: validEmail._id }, "SecretKey");
+      res.cookie("token", token);
       res.send("User login success");
     } else {
       throw new Error("Imvalid credentials");
@@ -39,6 +44,14 @@ app.post("/login", async (req, res) => {
   } catch (err) {
     throw new Error("Error :" + err.message);
   }
+});
+app.get("/profile", async (req, res) => {
+  const cookies = req.cookies;
+  const { token } = cookies;
+  const decodedData = await jwt.verify(token, "SecretKey");
+  const { _id } = decodedData;
+  const user = await User.findById(_id);
+  res.send(user);
 });
 app.get("/user", async (req, res) => {
   try {
